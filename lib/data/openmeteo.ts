@@ -4,28 +4,16 @@ const OPEN_METEO_BASE = 'https://api.open-meteo.com/v1/forecast';
 
 const weatherCache = new Map<string, WeatherData>();
 
-/**
- * Creates a cache key from rounded coordinates
- * Rounds to 1 decimal place for efficient caching
- */
 function createCacheKey(lat: number, lon: number): string {
   const roundedLat = Math.round(lat * 10) / 10;
   const roundedLon = Math.round(lon * 10) / 10;
   return `${roundedLat},${roundedLon}`;
 }
 
-/**
- * Fetches weather data for a specific location
- *
- * @param lat Latitude
- * @param lon Longitude
- * @returns Weather data including current conditions and hourly history
- */
 export async function fetchWeatherData(
   lat: number,
   lon: number
 ): Promise<WeatherData> {
-  // Check cache first
   const cacheKey = createCacheKey(lat, lon);
   const cached = weatherCache.get(cacheKey);
   if (cached) {
@@ -36,7 +24,6 @@ export async function fetchWeatherData(
   console.log(`Fetching weather for ${lat}, ${lon}...`);
 
   try {
-    // Build API URL
     const url = new URL(OPEN_METEO_BASE);
     url.searchParams.append('latitude', lat.toFixed(6));
     url.searchParams.append('longitude', lon.toFixed(6));
@@ -46,7 +33,7 @@ export async function fetchWeatherData(
     url.searchParams.append('timezone', 'UTC');
 
     const response = await fetch(url.toString(), {
-      next: { revalidate: 3600 }, // Cache for 1 hour
+      next: { revalidate: 3600 },
     });
 
     if (!response.ok) {
@@ -55,7 +42,6 @@ export async function fetchWeatherData(
 
     const data: OpenMeteoResponse = await response.json();
 
-    // Parse hourly data
     const hourly = data.hourly.time.map((time, idx) => ({
       time: new Date(time),
       temperature: data.hourly.temperature_2m[idx],
@@ -63,7 +49,6 @@ export async function fetchWeatherData(
       windDirection: data.hourly.wind_direction_10m[idx],
     }));
 
-    // Get most recent data point for "current" conditions
     const latestIdx = hourly.length - 1;
     const current = {
       temperature: data.hourly.temperature_2m[latestIdx],
@@ -81,10 +66,9 @@ export async function fetchWeatherData(
       hourly,
     };
 
-    // Cache the result
     weatherCache.set(cacheKey, weatherData);
 
-    console.log(`✓ Fetched weather for ${cacheKey}`);
+    console.log(`Fetched weather for ${cacheKey}`);
     return weatherData;
 
   } catch (error) {
@@ -93,17 +77,11 @@ export async function fetchWeatherData(
   }
 }
 
-/**
- * Clears the weather cache (useful for testing or manual refresh)
- */
 export function clearWeatherCache(): void {
   weatherCache.clear();
   console.log('Weather cache cleared');
 }
 
-/**
- * Converts wind direction (degrees) to cardinal direction
- */
 export function windDirectionToCardinal(degrees: number): string {
   const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
                       'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
