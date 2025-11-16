@@ -88,8 +88,8 @@ input[type="number"] {
 
 /* Leaflet overrides for dark theme */
 .leaflet-container {
-  background: #111827;
-  font-family: var(--font-inter), sans-serif;
+  background: #262626 !important;
+  font-family: var(--font-inter), sans-serif !important;
 }
 
 .leaflet-popup-content-wrapper,
@@ -105,6 +105,51 @@ input[type="number"] {
 
 .leaflet-container a.leaflet-popup-close-button:hover {
   color: #f9fafb;
+}
+
+.leaflet-tooltip {
+  background-color: color-mix(in oklab, var(--color-zinc-950) 90%, transparent) !important;
+  color: var(--color-gray-200) !important;
+  border: 1px solid color-mix(in oklab, var(--color-sky-500) 60%, transparent) !important;
+}
+
+.leaflet-tooltip::before {
+  border-top-color: color-mix(in oklab, var(--color-sky-500) 60%, transparent) !important;
+}
+
+/* use tailwind colors */
+.marker-cluster-small {
+  background: color-mix(in oklab, var(--color-green-600) 70%, transparent) !important;
+}
+
+.marker-cluster-small div {
+  background: var(--color-green-900) !important;
+}
+
+.marker-cluster-medium {
+  background: color-mix(in oklab, var(--color-yellow-600) 70%, transparent) !important;
+}
+
+.marker-cluster-medium div {
+  background: var(--color-yellow-900) !important;
+}
+
+.marker-cluster-large {
+  background: color-mix(in oklab, var(--color-amber-600) 70%, transparent) !important;
+}
+
+.marker-cluster-large div {
+  background: var(--color-amber-900) !important;
+}
+
+/* Globe view styles */
+.float-tooltip-kap {
+  background: none !important;
+}
+
+.altitude-label:hover {
+  transform: scale(1.4);
+  z-index: 999;
 }
 
 /* Scrollbar styling for details panel */
