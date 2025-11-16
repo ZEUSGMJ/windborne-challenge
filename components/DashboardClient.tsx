@@ -1,51 +1,96 @@
 'use client';
-import { useState } from 'react';
-import { BalloonTrack } from '@lib/types';
-import { TimeSlider } from '@/components/ui/TimeSlider';
+import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { BalloonTrack } from '@/lib/types';
+import { DetailsPanel } from '@/components/details/DetailsPanel';
+import { Navbar } from '@/components/Navbar';
+
+const MapView = dynamic(
+  () => import('@/components/map/MapView').then((mod) => ({ default: mod.MapView })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+        <p className="text-gray-500">Loading map...</p>
+      </div>
+    )
+  }
+);
+
+const GlobeView = dynamic(
+  () => import('@/components/globe/GlobeView'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+        <p className="text-gray-500">Loading globe...</p>
+      </div>
+    )
+  }
+);
 
 interface DashboardClientProps {
   initialBalloons: BalloonTrack[];
 }
 
 export function DashboardClient({ initialBalloons }: DashboardClientProps) {
-  const [trackHours, setTrackHours] = useState<number>(3); // Default: show last 3 hours
+  const [selectedBalloonId, setSelectedBalloonId] = useState<number | null>(null);
+  const [hoveredBalloonId, setHoveredBalloonId] = useState<number | null>(null);
+  const [trackHours, setTrackHours] = useState<number>(3);
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
+
+  const selectedBalloon = initialBalloons.find(b => b.id === selectedBalloonId) || null;
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && selectedBalloonId !== null) {
+        setSelectedBalloonId(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [selectedBalloonId]);
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-zinc-950">
-      {/* Header */}
-      <header className="bg-zinc-950 border-b border-zinc-800 shrink-0">
-        <nav className='flex flex-col items-center py-6'>
-          <span className="text-2xl font-bold text-white">WindBorne Balloon Tracker</span>
-        </nav>
-      </header>
+    <>
+      <Navbar
+        showViewToggle={true}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel: Map */}
-        <div className="flex-1 flex flex-col relative">
-          <div className="flex-1 relative">
-            {/* MapView */}
-			<div className="w-full h-full bg-zinc-950 flex items-center justify-center">
-				<p className="text-gray-500">MapView Placeholder</p>
-			</div>
-          </div>
-
-          {/* Time Slider - Positioned at bottom of map */}
-          <div className="absolute bottom-6 left-6 right-6 z-1000">
-            <TimeSlider
+      <main className="flex-1 flex overflow-hidden">
+        <div className="flex-1 relative">
+          {viewMode === '2d' ? (
+            <MapView
+              balloons={initialBalloons}
               trackHours={trackHours}
-              onTrackHoursChange={setTrackHours}
+              selectedBalloonId={selectedBalloonId}
+              hoveredBalloonId={hoveredBalloonId}
+              onSelectBalloon={setSelectedBalloonId}
+              onHoverBalloon={setHoveredBalloonId}
             />
-          </div>
+          ) : (
+            <GlobeView
+              balloons={initialBalloons}
+              selectedBalloonId={selectedBalloonId}
+              onBalloonSelect={setSelectedBalloonId}
+            />
+          )}
         </div>
 
-        {/* Right Panel: Details */}
         <div className="w-5/12 shrink-0">
-          <div className="w-full h-full bg-zinc-900 p-4">
-            <p className="text-gray-400">Details Panel Placeholder</p>
-          </div>
+          <DetailsPanel
+            selectedBalloon={selectedBalloon}
+            balloons={initialBalloons}
+            trackHours={trackHours}
+            onTrackHoursChange={setTrackHours}
+            onClose={() => setSelectedBalloonId(null)}
+            viewMode={viewMode}
+          />
         </div>
-      </div>
-    </div>
+      </main>
+    </>
   );
 }
