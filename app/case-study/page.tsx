@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Highlight, themes } from 'prism-react-renderer';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { FaLinkedin, FaGithub, FaGlobe } from "react-icons/fa";
 import { FiArrowUpRight } from "react-icons/fi";
 
@@ -372,6 +374,20 @@ export default function CaseStudyPage() {
                 This produces a clear visual sense of where balloons sit relative to each other
                 in the atmosphere.
               </p>
+
+              <div className="mt-6 rounded-lg border border-zinc-800 overflow-hidden">
+                <Image
+                  src="/images/windborne-tracker_2.png"
+                  alt="3D Globe View showing balloon constellation with altitude-based color coding"
+                  width={1920}
+                  height={1080}
+                  className="w-full h-auto"
+                />
+                <p className="text-xs text-zinc-500 bg-zinc-950/80 px-4 py-2 border-t border-zinc-800">
+                  3D globe visualization with altitude-based color coding and trajectory prediction
+                </p>
+              </div>
+
               <p className="mt-3 text-sm leading-relaxed text-zinc-300">
                 When a balloon is selected, its 24-hour trajectory appears as a path wrapped
                 around the globe. I also add hourly markers along the path. Each marker displays
@@ -638,6 +654,8 @@ export default function CaseStudyPage() {
           </aside>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }

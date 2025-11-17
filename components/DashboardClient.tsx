@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { BalloonTrack } from '@/lib/types';
 import { DetailsPanel } from '@/components/details/DetailsPanel';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { calculateWindMisalignment, WindMisalignmentData, calculateWindAlignmentInsights, WindAlignmentInsights } from '@/lib/data/windMisalignment';
 
 const MapView = dynamic(
@@ -125,6 +126,8 @@ export function DashboardClient({ initialBalloons }: DashboardClientProps) {
           />
         </div>
       </main>
+
+      <Footer />
     </>
   );
 }
