@@ -17,6 +17,8 @@ export function Navbar({ showViewToggle = false, viewMode = '2d', onViewModeChan
         <div className="flex items-center gap-8">
           <span className="text-2xl font-bold text-white">WindBorne Balloon Tracker</span>
 
+          <div className="h-6 w-0.5 bg-zinc-700"></div>
+
           <div className="flex gap-6">
             <Link
               href="/"
