@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { BalloonTrack } from '@/lib/types';
 import { DetailsPanel } from '@/components/details/DetailsPanel';
 import { Navbar } from '@/components/Navbar';
+import { calculateWindMisalignment, WindMisalignmentData, calculateWindAlignmentInsights, WindAlignmentInsights } from '@/lib/data/windMisalignment';
 
 const MapView = dynamic(
   () => import('@/components/map/MapView').then((mod) => ({ default: mod.MapView })),
@@ -36,8 +37,11 @@ interface DashboardClientProps {
 export function DashboardClient({ initialBalloons }: DashboardClientProps) {
   const [selectedBalloonId, setSelectedBalloonId] = useState<number | null>(null);
   const [hoveredBalloonId, setHoveredBalloonId] = useState<number | null>(null);
-  const [trackHours, setTrackHours] = useState<number>(3);
+  const [trackHours, setTrackHours] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
+  const [windMisalignmentData, setWindMisalignmentData] = useState<WindMisalignmentData[]>([]);
+  const [windInsights, setWindInsights] = useState<WindAlignmentInsights | null>(null);
+  const [isLoadingWindData, setIsLoadingWindData] = useState(true);
 
   const selectedBalloon = initialBalloons.find(b => b.id === selectedBalloonId) || null;
 
@@ -51,6 +55,32 @@ export function DashboardClient({ initialBalloons }: DashboardClientProps) {
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [selectedBalloonId]);
+
+  useEffect(() => {
+    if (windMisalignmentData.length === 0 && isLoadingWindData) {
+      let cancelled = false;
+
+      calculateWindMisalignment(initialBalloons)
+        .then((data) => {
+          if (!cancelled) {
+            setWindMisalignmentData(data);
+            const insights = calculateWindAlignmentInsights(data);
+            setWindInsights(insights);
+            setIsLoadingWindData(false);
+          }
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            console.error('Failed to calculate wind misalignment:', error);
+            setIsLoadingWindData(false);
+          }
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [initialBalloons, windMisalignmentData.length, isLoadingWindData]);
 
   return (
     <>
@@ -70,6 +100,7 @@ export function DashboardClient({ initialBalloons }: DashboardClientProps) {
               hoveredBalloonId={hoveredBalloonId}
               onSelectBalloon={setSelectedBalloonId}
               onHoverBalloon={setHoveredBalloonId}
+              windMisalignmentData={windMisalignmentData}
             />
           ) : (
             <GlobeView
@@ -88,6 +119,9 @@ export function DashboardClient({ initialBalloons }: DashboardClientProps) {
             onTrackHoursChange={setTrackHours}
             onClose={() => setSelectedBalloonId(null)}
             viewMode={viewMode}
+            windInsights={windInsights}
+            isLoadingWindData={isLoadingWindData}
+            windMisalignmentData={windMisalignmentData}
           />
         </div>
       </main>

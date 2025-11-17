@@ -11,7 +11,7 @@ export function TimeSlider({ trackHours, onTrackHoursChange }: TimeSliderProps) 
     const num = parseInt(value, 10);
     if (isNaN(num)) return;
 
-    const clamped = Math.min(24, Math.max(1, num));
+    const clamped = Math.min(24, Math.max(0, num));
     onTrackHoursChange(clamped);
   };
 
@@ -20,7 +20,7 @@ export function TimeSlider({ trackHours, onTrackHoursChange }: TimeSliderProps) 
   };
 
   const decrement = () => {
-    onTrackHoursChange(Math.max(1, trackHours - 1));
+    onTrackHoursChange(Math.max(0, trackHours - 1));
   };
 
   return (
@@ -36,7 +36,7 @@ export function TimeSlider({ trackHours, onTrackHoursChange }: TimeSliderProps) 
           <div className="relative w-20">
             <input
               type="number"
-              min={1}
+              min={0}
               max={24}
               value={trackHours}
               onChange={(e) => handleChange(e.target.value)}
@@ -74,7 +74,7 @@ export function TimeSlider({ trackHours, onTrackHoursChange }: TimeSliderProps) 
       {/* Slider */}
       <input
         type="range"
-        min="1"
+        min="0"
         max="24"
         step="1"
         value={trackHours}
