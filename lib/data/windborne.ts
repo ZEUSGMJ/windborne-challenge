@@ -124,10 +124,3 @@ export async function loadBalloonData(): Promise<BalloonTrack[]> {
   console.log(`Successfully loaded ${tracks.length} balloon tracks`);
   return tracks;
 }
-
-export function getVisibleSamples(
-  track: BalloonTrack,
-  trackHours: number
-): BalloonSample[] {
-  return track.samples.filter(sample => sample.hourAgo < trackHours);
-}
