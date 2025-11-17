@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WindBorne Balloon Tracker
+
+This project was built as part of the WindBorne Junior Web Developer challenge.  
+The goal was to explore their live telemetry feed, work through the rough parts of the data,  
+and combine it with an external weather source to create an interactive visualization that  
+is easy to explore in both 2D and 3D.
+
+A real-time visualization tool that shows the WindBorne balloon constellation in 2D and 3D.  
+The project takes the live telemetry feed, handles the messy parts of the data, and adds  
+external weather information to help explain how the balloons move. The aim was to build  
+something that feels simple to navigate and gives a clear sense of what the constellation  
+is doing at any moment.
+
+**Live Demo:**
+https://windborne-challenge.jisnugm.com
+
+## Screenshots
+
+### 2D Mode View
+![2D Mode View](public/images/windborne-tracker_1.png)
+*2D mode, with same details panel showing global statistic.*
+
+### 2D Map View with Trajectory
+![2D Map View](public/images/windborne-tracker_3.png)
+*2D map visualization with historical trajectory and future predictions.*
+
+### 3D Globe View with Altitude Heatmap
+![3D Globe View](public/images/windborne-tracker_4.png)
+*Interactive 3D globe showing balloon constellation with altitude-based color coding.*
+
+### 3D Balloon Details View
+![3D Balloon Details](public/images/windborne-tracker_2.png)
+*Single-balloon view on the 3D globe, showing its recent path, predicted trajectory, movement insights, altitude history, and local weather data.*
+
+
+
+## Features
+
+- Switch between an interactive 2D map and a 3D globe
+- Real-time tracking of more than a thousand active balloons
+- 24 hour historical playback with a smooth time slider
+- Short term trajectory prediction based on recent movement
+- Extended prediction using Open-Meteo wind data
+- Wind misalignment checks to compare observed motion vs forecasted winds
+- Altitude based color coding with simple, readable bands
+- Data quality checks to handle the gaps or corrupted samples
+- Global statistics and per balloon insights
+
+## Tech Stack
+
+- Next.js 15 with TypeScript
+- Tailwind CSS for layout and styling
+- Leaflet for 2D mapping
+- react-globe.gl for 3D visualization
+- Recharts for charts and statistics
+- Open-Meteo API for wind and weather data
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000 to view the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `/app` – Next.js app directory with routes, layout, and page logic  
+- `/components` – UI components and visualization elements  
+- `/lib` – Data fetching, helpers, and shared types  
 
-## Learn More
+## Data Sources
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **WindBorne Systems API** – Live balloon positions and hourly history  
+- **Open-Meteo API** – High altitude wind and weather forecasts
