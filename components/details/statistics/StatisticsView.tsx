@@ -6,12 +6,15 @@ import { RegionDistribution } from './RegionDistribution';
 import { AltitudeSpeedCorrelation } from './AltitudeSpeedCorrelation';
 import { KeyInsights } from './KeyInsights';
 import { DataQuality } from './DataQuality';
+import { WindAlignmentInsights } from '@/lib/data/windMisalignment';
 
 interface StatisticsViewProps {
 	balloons: BalloonTrack[];
+	windInsights?: WindAlignmentInsights | null;
+	isLoadingWindData?: boolean;
 }
 
-export function StatisticsView({ balloons }: StatisticsViewProps) {
+export function StatisticsView({ balloons, windInsights, isLoadingWindData }: StatisticsViewProps) {
 	const stats = useStatistics(balloons);
 
 	if (!stats) {
@@ -30,7 +33,7 @@ export function StatisticsView({ balloons }: StatisticsViewProps) {
 				<AltitudeSpeedCorrelation correlationData={stats.correlationData} />
 			</div>
 
-			<KeyInsights stats={stats} />
+			<KeyInsights stats={stats} windInsights={windInsights} isLoadingWindData={isLoadingWindData} />
 
 			<DataQuality issues={stats.dataQualityIssues} />
 		</div>
