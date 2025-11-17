@@ -1,16 +1,16 @@
 'use client';
 import { Polyline } from 'react-leaflet';
 import { BalloonTrack as BalloonTrackType } from '@/lib/types';
-import { getVisibleSamples } from '@/lib/data/windborne';
+import { WindSegment } from '@/lib/data/windMisalignment';
 
 interface BalloonTrackProps {
   balloon: BalloonTrackType;
-  trackHours: number;
   isHovered: boolean;
+  windSegments?: WindSegment[];
 }
 
-export function BalloonTrack({ balloon, trackHours, isHovered }: BalloonTrackProps) {
-  const visibleSamples = getVisibleSamples(balloon, trackHours);
+export function BalloonTrack({ balloon, isHovered, windSegments }: BalloonTrackProps) {
+  const visibleSamples = balloon.samples;
 
   if (visibleSamples.length < 2) {
     return null;
@@ -71,23 +71,36 @@ export function BalloonTrack({ balloon, trackHours, isHovered }: BalloonTrackPro
     trackSegments.push(currentSegment);
   }
 
-  const pathOptions = {
-    color: isHovered ? '#fbbf24' : '#00a5ef',
-    weight: isHovered ? 4 : 2,
-    opacity: isHovered ? 1 : 0.7,
+  const getSegmentColor = (segmentIndex: number): string => {
+    if (isHovered) return '#fbbf24';
+    if (!windSegments || windSegments.length === 0) return '#00a5ef';
+
+    if (segmentIndex < windSegments.length && windSegments[segmentIndex].color) {
+      return windSegments[segmentIndex].color;
+    }
+
+    return '#00a5ef';
   };
 
   return (
     <>
-      {trackSegments.map((segment, index) => (
-        segment.length >= 2 && (
-          <Polyline
-            key={`segment-${balloon.id}-${index}`}
-            positions={segment}
-            pathOptions={pathOptions}
-          />
-        )
-      ))}
+      {trackSegments.map((segment, index) => {
+        const pathOptions = {
+          color: getSegmentColor(index),
+          weight: isHovered ? 4 : 2,
+          opacity: isHovered ? 1 : 0.7,
+        };
+
+        return (
+          segment.length >= 2 && (
+            <Polyline
+              key={`segment-${balloon.id}-${index}`}
+              positions={segment}
+              pathOptions={pathOptions}
+            />
+          )
+        );
+      })}
     </>
   );
 }

@@ -1,10 +1,12 @@
 'use client';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import dynamic from 'next/dynamic';
-import { BalloonTrack as BalloonTrackType } from '@/lib/types';
+import { BalloonTrack as BalloonTrackType, BalloonSample } from '@/lib/types';
 import { BalloonMarker } from './BalloonMarker';
 import { BalloonTrack } from './BalloonTrack';
+import { FutureTrajectory } from './FutureTrajectory';
+import { WindMisalignmentData } from '@/lib/data/windMisalignment';
 import 'leaflet/dist/leaflet.css';
 
 const MarkerClusterGroup = dynamic(() => import('./MarkerClusterGroup'), {
@@ -18,15 +20,23 @@ interface MapViewProps {
   hoveredBalloonId: number | null;
   onSelectBalloon: (id: number) => void;
   onHoverBalloon: (id: number | null) => void;
+  windMisalignmentData?: WindMisalignmentData[];
 }
 
-export function MapView({ balloons, trackHours, selectedBalloonId, hoveredBalloonId, onSelectBalloon, onHoverBalloon }: MapViewProps) {
+export function MapView({ balloons, trackHours, selectedBalloonId, hoveredBalloonId, onSelectBalloon, onHoverBalloon, windMisalignmentData }: MapViewProps) {
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsClient(true), 0);
     return () => clearTimeout(timer);
   }, []);
+
+  const getBalloonPositionAtTime = useMemo(() => {
+    return (balloon: BalloonTrackType): BalloonSample => {
+      const sample = balloon.samples.find(s => s.hourAgo === trackHours);
+      return sample || balloon.latest;
+    };
+  }, [trackHours]);
 
   if (!isClient) {
     return (
@@ -59,14 +69,23 @@ export function MapView({ balloons, trackHours, selectedBalloonId, hoveredBalloo
           noWrap={false}
         />
 
-        {selectedBalloonId !== null && visibleBalloons.map((balloon) => (
-          <BalloonTrack
-            key={`track-${balloon.id}`}
-            balloon={balloon}
-            trackHours={trackHours}
-            isHovered={hoveredBalloonId === balloon.id}
-          />
-        ))}
+        {selectedBalloonId !== null && visibleBalloons.map((balloon) => {
+          const balloonWindData = windMisalignmentData?.find(w => w.balloonId === balloon.id);
+          const currentPosition = getBalloonPositionAtTime(balloon);
+          return (
+            <React.Fragment key={balloon.id}>
+              <BalloonTrack
+                balloon={balloon}
+                isHovered={hoveredBalloonId === balloon.id}
+                windSegments={balloonWindData?.segments}
+              />
+              <FutureTrajectory
+                balloon={balloon}
+                startPosition={currentPosition}
+              />
+            </React.Fragment>
+          );
+        })}
 
         {selectedBalloonId === null ? (
           <MarkerClusterGroup
@@ -87,16 +106,20 @@ export function MapView({ balloons, trackHours, selectedBalloonId, hoveredBalloo
             ))}
           </MarkerClusterGroup>
         ) : (
-          visibleBalloons.map((balloon) => (
-            <BalloonMarker
-              key={`marker-${balloon.id}`}
-              balloon={balloon}
-              isSelected={selectedBalloonId === balloon.id}
-              onSelect={() => onSelectBalloon(balloon.id)}
-              onHover={() => onHoverBalloon(balloon.id)}
-              onHoverEnd={() => onHoverBalloon(null)}
-            />
-          ))
+          visibleBalloons.map((balloon) => {
+            const currentPosition = getBalloonPositionAtTime(balloon);
+            return (
+              <BalloonMarker
+                key={`marker-${balloon.id}`}
+                balloon={balloon}
+                isSelected={selectedBalloonId === balloon.id}
+                onSelect={() => onSelectBalloon(balloon.id)}
+                onHover={() => onHoverBalloon(balloon.id)}
+                onHoverEnd={() => onHoverBalloon(null)}
+                position={currentPosition}
+              />
+            );
+          })
         )}
       </MapContainer>
     </div>
