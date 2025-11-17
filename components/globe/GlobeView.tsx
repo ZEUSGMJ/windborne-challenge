@@ -4,6 +4,7 @@ import { useRef, useEffect, useMemo, useCallback, useState } from 'react';
 import dynamic from 'next/dynamic';
 import * as THREE from 'three';
 import type { BalloonTrack } from '@/lib/types';
+import { predictHybridTrajectory } from '@/lib/data/trajectory';
 
 const GlobeGL = dynamic(() => import('react-globe.gl'), { ssr: false });
 
@@ -35,6 +36,26 @@ interface GlobeViewProps {
   onBalloonSelect: (id: number | null) => void;
 }
 
+interface AltitudeColors {
+  low: string;
+  midLow: string;
+  mid: string;
+  midHigh: string;
+  high: string;
+  extreme: string;
+}
+
+const ALTITUDE_COLORS: AltitudeColors = {
+  low: '#7DD3FC',        // <10 km
+  midLow: '#22D3EE',     // 10–15 km
+  mid: '#2DD4BF',        // 15–20 km
+  midHigh: '#A3E635',    // 20–25 km
+  high: '#FDE047',       // 25–30 km
+  extreme: '#F87171',    // >30 km
+};
+
+const ARC_END_OFFSET: number = 0.004;
+
 export default function GlobeView({
   balloons,
   selectedBalloonId,
@@ -42,9 +63,7 @@ export default function GlobeView({
 }: GlobeViewProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const globeEl = useRef<any>(null);
-
   const [autoRotate, setAutoRotate] = useState(false);
-  const [balloonColor] = useState('#00a5ef');
   const [arcColor] = useState('#e60076');
   const [pathColor] = useState('#10b981');
   const [altitudeScale, setAltitudeScale] = useState(300);
@@ -162,6 +181,94 @@ export default function GlobeView({
     return pathSegments.length > 0 ? pathSegments : null;
   }, [balloons, selectedBalloonId, altitudeScale]);
 
+  interface PathWithType extends Array<PathPoint> {
+    pathType?: 'past' | 'velocity' | 'wind';
+  }
+
+  const [futurePredictions, setFuturePredictions] = useState<PathWithType[]>([]);
+
+  useEffect(() => {
+    const selectedBalloon = selectedBalloonId === null ? null : balloons.find((b) => b.id === selectedBalloonId);
+
+    if (!selectedBalloon) {
+      Promise.resolve().then(() => setFuturePredictions([]));
+      return;
+    }
+
+    let cancelled = false;
+
+    predictHybridTrajectory(selectedBalloon).then(predictions => {
+      if (cancelled) return;
+
+      const velocityPredictions = predictions.filter(p => p.predictionType === 'velocity');
+      const windPredictions = predictions.filter(p => p.predictionType === 'wind');
+
+      const paths: PathWithType[] = [];
+
+      if (velocityPredictions.length > 0) {
+        const velocityPath: PathWithType = [
+          {
+            lat: selectedBalloon.latest.lat,
+            lng: selectedBalloon.latest.lon,
+            alt: selectedBalloon.latest.altKm / altitudeScale,
+          },
+          ...velocityPredictions.map(pos => ({
+            lat: pos.lat,
+            lng: pos.lon,
+            alt: pos.altKm / altitudeScale,
+          }))
+        ];
+        velocityPath.pathType = 'velocity';
+        paths.push(velocityPath);
+      }
+
+      if (windPredictions.length > 0) {
+        const lastVelocityPos = velocityPredictions[velocityPredictions.length - 1];
+        const windPath: PathWithType = [
+          {
+            lat: lastVelocityPos.lat,
+            lng: lastVelocityPos.lon,
+            alt: lastVelocityPos.altKm / altitudeScale,
+          },
+          ...windPredictions.map(pos => ({
+            lat: pos.lat,
+            lng: pos.lon,
+            alt: pos.altKm / altitudeScale,
+          }))
+        ];
+        windPath.pathType = 'wind';
+        paths.push(windPath);
+      }
+
+      setFuturePredictions(paths);
+    }).catch(error => {
+      console.error('Failed to predict hybrid trajectory:', error);
+      if (!cancelled) {
+        setFuturePredictions([]);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [balloons, selectedBalloonId, altitudeScale]);
+
+  const allPaths = useMemo<PathWithType[]>(() => {
+    const paths: PathWithType[] = [];
+
+    if (trajectoryPath) {
+      trajectoryPath.forEach(path => {
+        const pathWithType = path as PathWithType;
+        pathWithType.pathType = 'past';
+        paths.push(pathWithType);
+      });
+    }
+
+    paths.push(...futurePredictions);
+
+    return paths;
+  }, [trajectoryPath, futurePredictions]);
+
   const balloonArcs = useMemo<ArcData[]>(() => {
     if (selectedBalloonId === null) {
       return balloonPoints.map((balloon) => ({
@@ -169,25 +276,36 @@ export default function GlobeView({
         startLng: balloon.lng,
         endLat: balloon.lat,
         endLng: balloon.lng,
-        endAlt: balloon.alt,
+        endAlt: Math.max(balloon.alt - ARC_END_OFFSET, 0),
       }));
     }
 
-    if (!trajectoryPath || trajectoryPath.length === 0) return [];
-
     const arcs: ArcData[] = [];
 
-    trajectoryPath.forEach(segment => {
-      segment.forEach(point => {
-        arcs.push({
-          startLat: point.lat,
-          startLng: point.lng,
-          endLat: point.lat,
-          endLng: point.lng,
-          endAlt: point.alt * 0.833,
+    const selectedBalloon = balloonPoints.find(b => b.id === selectedBalloonId);
+    if (selectedBalloon) {
+      arcs.push({
+        startLat: selectedBalloon.lat,
+        startLng: selectedBalloon.lng,
+        endLat: selectedBalloon.lat,
+        endLng: selectedBalloon.lng,
+        endAlt: Math.max(selectedBalloon.alt - ARC_END_OFFSET, 0),
+      });
+    }
+
+    if (trajectoryPath && trajectoryPath.length > 0) {
+      trajectoryPath.forEach(segment => {
+        segment.forEach(point => {
+          arcs.push({
+            startLat: point.lat,
+            startLng: point.lng,
+            endLat: point.lat,
+            endLng: point.lng,
+            endAlt: Math.max(point.alt - ARC_END_OFFSET, 0),
+          });
         });
       });
-    });
+    }
 
     return arcs;
   }, [balloonPoints, selectedBalloonId, trajectoryPath]);
@@ -241,28 +359,33 @@ export default function GlobeView({
     onBalloonSelect(null);
   }, [onBalloonSelect]);
 
-  const balloonObject = useCallback(() => {
-    const geometry = new THREE.SphereGeometry(0.8, 16, 16);
-    const color = new THREE.Color(balloonColor);
-    const emissive = new THREE.Color(balloonColor).multiplyScalar(2);
+  const getAltitudeColor = useCallback((altKm: number): string => {
+    if (altKm < 10) return ALTITUDE_COLORS.low;
+    if (altKm < 15) return ALTITUDE_COLORS.midLow;
+    if (altKm < 20) return ALTITUDE_COLORS.mid;
+    if (altKm < 25) return ALTITUDE_COLORS.midHigh;
+    if (altKm < 30) return ALTITUDE_COLORS.high;
+    return ALTITUDE_COLORS.extreme;
+  }, []);
 
-    const material = new THREE.MeshLambertMaterial({
-      color: color,
-      emissive: emissive,
-      emissiveIntensity: 5,
+  const balloonObject = useCallback((d: object) => {
+    const balloon = d as BalloonPoint;
+    const geometry = new THREE.SphereGeometry(0.4, 16, 16);
+    const material = new THREE.MeshBasicMaterial({
+      color: getAltitudeColor(balloon.altKm),
     });
     return new THREE.Mesh(geometry, material);
-  }, [balloonColor]);
+  }, [getAltitudeColor]);
 
   const hourlyMarkerObject = useCallback(() => {
-    const geometry = new THREE.SphereGeometry(0.2, 8, 8);
+    const geometry = new THREE.SphereGeometry(0.5, 12, 12);
     const color = new THREE.Color('#fbbf24');
-    const emissive = new THREE.Color('#fbbf24').multiplyScalar(1.2);
+    const emissive = new THREE.Color('#fbbf24').multiplyScalar(2);
 
     const material = new THREE.MeshLambertMaterial({
       color: color,
       emissive: emissive,
-      emissiveIntensity: 2,
+      emissiveIntensity: 4,
     });
     return new THREE.Mesh(geometry, material);
   }, []);
@@ -289,6 +412,8 @@ export default function GlobeView({
   const getBalloonTooltip = useCallback(
     (d: object) => {
       const balloon = d as BalloonPoint;
+      const isSelected = balloon.id === selectedBalloonId;
+
       return `
       <div style="
         background: rgba(17, 17, 17, 0.95);
@@ -323,6 +448,28 @@ export default function GlobeView({
             <span style="font-weight: 500; color: #10b981;">${balloon.altKm.toFixed(2)} km</span>
           </div>
         </div>
+        ${isSelected ? `
+        <div style="
+          margin-top: 8px;
+          padding-top: 6px;
+          border-top: 1px solid rgba(59, 130, 246, 0.3);
+          font-size: 10px;
+        ">
+          <div style="font-weight: 600; color: #9ca3af; margin-bottom: 4px;">Trajectory Legend:</div>
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+            <div style="width: 16px; height: 2px; background: #10b981;"></div>
+            <span style="color: #9ca3af;">Past Path</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+            <div style="width: 16px; height: 2px; background: #a855f7;"></div>
+            <span style="color: #9ca3af;">Velocity (3h)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="width: 16px; height: 2px; background: #f97316;"></div>
+            <span style="color: #9ca3af;">Wind (6h)</span>
+          </div>
+        </div>
+        ` : `
         <div style="
           margin-top: 8px;
           padding-top: 6px;
@@ -332,13 +479,19 @@ export default function GlobeView({
         ">
           Click to view trajectory
         </div>
+        `}
       </div>
     `;
     },
-    []
+    [selectedBalloonId]
   );
 
-  const getPathColor = useCallback(() => pathColor, [pathColor]);
+  const getPathColor = useCallback((d: object) => {
+    const path = d as PathWithType;
+    if (path.pathType === 'velocity') return '#a855f7';     // Purple for velocity-based (3h)
+    if (path.pathType === 'wind') return '#f97316';         // Orange for wind-based (6h)
+    return pathColor;
+  }, [pathColor]);
 
   return (
     <div ref={containerRef} className="relative w-full h-full">
@@ -373,6 +526,45 @@ export default function GlobeView({
             <span>1000</span>
           </div>
         </div>
+
+        <div className="mt-4 pt-4 border-t border-zinc-700">
+          <div className="text-xs font-semibold text-gray-300 mb-2">
+            Altitude Heatmap:
+          </div>
+
+          <div className="space-y-1.5 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-12 rounded" style={{ background: ALTITUDE_COLORS.low }}></div>
+              <span className="text-gray-400">&lt;10 km: Light Blue</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-12 rounded" style={{ background: ALTITUDE_COLORS.midLow }}></div>
+              <span className="text-gray-400">10–15 km: Cyan</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-12 rounded" style={{ background: ALTITUDE_COLORS.mid }}></div>
+              <span className="text-gray-400">15–20 km: Teal</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-12 rounded" style={{ background: ALTITUDE_COLORS.midHigh }}></div>
+              <span className="text-gray-400">20–25 km: Lime</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-12 rounded" style={{ background: ALTITUDE_COLORS.high }}></div>
+              <span className="text-gray-400">25–30 km: Yellow</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-12 rounded" style={{ background: ALTITUDE_COLORS.extreme }}></div>
+              <span className="text-gray-400">&gt;30 km: Red</span>
+            </div>
+          </div>
+        </div>
+
 
         {selectedBalloonId !== null ? (
           <div className="mt-4 pt-4 border-t border-zinc-700">
@@ -413,7 +605,7 @@ export default function GlobeView({
         arcColor={() => arcColor}
         arcDashLength={1}
         arcDashGap={0}
-        pathsData={trajectoryPath || []}
+        pathsData={allPaths}
         pathPoints={(d: object) => d as PathPoint[]}
         pathPointLat={(p: object) => (p as PathPoint).lat}
         pathPointLng={(p: object) => (p as PathPoint).lng}
@@ -427,7 +619,9 @@ export default function GlobeView({
         customThreeObject={hourlyMarkerObject}
         customThreeObjectUpdate={(obj, d: object) => {
           const balloon = d as BalloonPoint;
-          Object.assign(obj.position, globeEl.current.getCoords(balloon.lat, balloon.lng, balloon.alt));
+          if (globeEl.current) {
+            Object.assign(obj.position, globeEl.current.getCoords(balloon.lat, balloon.lng, balloon.alt));
+          }
         }}
         htmlElementsData={hourlyMarkers}
         htmlElement={createAltitudeLabel}
