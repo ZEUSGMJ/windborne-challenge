@@ -1,6 +1,5 @@
 'use client';
 import { BalloonTrack } from '@/lib/types';
-import { getVisibleSamples } from '@/lib/data/windborne';
 import {
 	LineChart,
 	Line,
@@ -32,8 +31,7 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<
 };
 
 export function AltitudeChart({ balloon, trackHours }: AltitudeChartProps) {
-	const visibleSamples = getVisibleSamples(balloon, trackHours);
-	const chartData = [...visibleSamples]
+	const chartData = [...balloon.samples]
 		.reverse()
 		.map((sample) => ({
 			hour: `${sample.hourAgo}h ago`,

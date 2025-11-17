@@ -6,6 +6,8 @@ import { WeatherChart } from './WeatherChart';
 import { BalloonDataQuality } from './BalloonDataQuality';
 import { StatisticsView } from './statistics';
 import { TimeSlider } from '@/components/ui/TimeSlider';
+import { WindAlignmentInsights, WindMisalignmentData } from '@/lib/data/windMisalignment';
+import { MdClose } from "react-icons/md";
 
 interface DetailsPanelProps {
 	selectedBalloon: BalloonTrack | null;
@@ -14,10 +16,21 @@ interface DetailsPanelProps {
 	onTrackHoursChange: (hours: number) => void;
 	onClose: () => void;
 	viewMode: '2d' | '3d';
+	windInsights?: WindAlignmentInsights | null;
+	isLoadingWindData?: boolean;
+	windMisalignmentData?: WindMisalignmentData[];
 }
 
-export function DetailsPanel({ selectedBalloon, balloons, trackHours, onTrackHoursChange, onClose, viewMode }: DetailsPanelProps) {
+export function DetailsPanel({ selectedBalloon, balloons, trackHours, onTrackHoursChange, onClose, viewMode, windInsights, isLoadingWindData, windMisalignmentData }: DetailsPanelProps) {
 	const effectiveTrackHours = viewMode === '3d' ? 24 : trackHours;
+
+	const getCurrentPosition = (balloon: BalloonTrack) => {
+		if (viewMode === '3d') {
+			return balloon.latest;
+		}
+		const sample = balloon.samples.find(s => s.hourAgo === trackHours);
+		return sample || balloon.latest;
+	};
 
 	if (!selectedBalloon) {
 		return (
@@ -29,7 +42,7 @@ export function DetailsPanel({ selectedBalloon, balloons, trackHours, onTrackHou
 
 				<div className="flex-1 overflow-y-auto">
 					<div className="p-6">
-						<StatisticsView balloons={balloons} />
+						<StatisticsView balloons={balloons} windInsights={windInsights} isLoadingWindData={isLoadingWindData} />
 					</div>
 				</div>
 
@@ -52,19 +65,22 @@ export function DetailsPanel({ selectedBalloon, balloons, trackHours, onTrackHou
 					<h2 className="text-xl font-bold text-white">Balloon #{selectedBalloon.id}</h2>
 					<button
 						onClick={onClose}
-						className="text-gray-400 hover:text-white transition-colors"
+						className="text-gray-400 hover:text-white hover:cursor-pointer transition-colors"
+						title='Close details'
 						aria-label="Close details"
 					>
-						<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-						</svg>
+						<MdClose size={24} />
 					</button>
 				</div>
 			</div>
 
 			<div className="flex-1 overflow-y-auto">
 				<div className="p-6 space-y-6">
-					<BalloonMetadata balloon={selectedBalloon} />
+					<BalloonMetadata
+						balloon={selectedBalloon}
+						currentPosition={getCurrentPosition(selectedBalloon)}
+						windMisalignmentData={windMisalignmentData?.find(w => w.balloonId === selectedBalloon.id)}
+					/>
 
 					<BalloonDataQuality balloon={selectedBalloon} />
 
